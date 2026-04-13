@@ -87,7 +87,6 @@ MAKEFLAGS += w
 # Create the variables with := so that subsequent += alterations keep it
 # as a "substitute at assignment time" variable
 TARGETS :=
-PYTARGETS :=
 
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
@@ -102,7 +101,6 @@ SUBDIRS := \
 # Each item in INCLUDES is transformed into a -I directive later on
 # The top directory is always included
 INCLUDES := .
-INCLUDES += include/
 
 USERSRCS :=
 RTSRCS :=
@@ -139,47 +137,6 @@ $$(patsubst $$(dir $(1))%.o,$(RTLIBDIR)/%.so,$(1)): \
     $$(addprefix $(OBJDIR)/,$(1) $(2))
 
 endef
-# Debugging
-#$$(info $(call c_comp_build_rules,hal/components/encoderv2.o))
-
-###############################################################################
-# C unit test setup
-#
-# This macro generates rules for C unit tests; e.g.
-#
-# $(eval $(call setup_test, \
-#     dir/test_src, RTAPI, dir/ulapi_srcs.c, dir/rtapi_srcs.c), ../lib/lib.so, \
-#    -lfoo, wrap_funct)
-#
-# expands to:
-#
-# RTSRCS += dir/main_src.c
-# objects/dir/test_src_RTAPI: \
-#		objects/dir/ulapi_srcs.o \
-#		$(OBJDIR)/dir/rtapi_srcs.o $(OBJDIR)/dir/test_src.o \
-#		../lib/lib.so
-#	@mkdir -p objects/dir
-#	@echo Linking test objects/dir/test_src_RTAPI
-#	$(Q)$(CC) -o objects/dir/test_src_RTAPI -g -DRTAPI \
-#		$(OBJDIR)/dir/test_src.o \
-#		objects/dir/ulapi_srcs.o $(OBJDIR)/dir/rtapi_srcs.o \
-#		../lib/lib.so -lfoo -Wl,--wrap=wrap_funct
-# CMOCKA_TESTS +=  dir/test_src_RTAPI
-#
-# ...and does the equivalent for ULAPI as well.
-
-WL_WRAP = -Wl,--wrap=
-define setup_test
-$$(if $$(filter RTAPI,$(2)),RTSRCS,USERSRCS) += $(1).c
-objects/$(1)_$(strip $(2)): \
-		$$(call $$(if $$(filter RTAPI,$(2)),TORTOBJS,TOOBJS), $(1).c) \
-		$$(call TOOBJS, $(3)) $$(call TORTOBJS, $(4)) $(5)
-	@mkdir -p objects/$$(dir $(1))
-	@echo Linking test objects/$(1)_$(strip $(2))
-	$(Q)$(CC) -o $$@ -g $$^ -lcmocka $(6) $$(addprefix $$(WL_WRAP),$(7))
-CMOCKA_TESTS += $(1)_$(strip $(2))
-
-endef
 
 ###############################################################################
 
@@ -198,11 +155,6 @@ else
 $(call ASSERT_EMPTY,$(filter-out %.c %.cc %.js %.proto, $(USERSRCS)))
 endif
 $(call ASSERT_EMPTY,$(filter-out %.c, $(RTSRCS)))
-
-ifeq ($(BUILD_PYTHON),yes)
-$(call TOOBJS,$(PYSRCS)) : EXTRAFLAGS += -fPIC $(call cc-option,-fno-strict-aliasing)
-USERSRCS += $(PYSRCS)
-endif
 
 # Find the list of object files for each type of source file
 CUSERSRCS := $(filter %.c,$(USERSRCS))
@@ -247,24 +199,16 @@ endif
 $(shell echo 1>&2 Done reading dependencies)
 endif
 
-# Each directory in $(INCLUDES) is passed as a -I directory when compiling.
-INCLUDE := $(patsubst %,-I%, $(INCLUDES))
-ifeq ($(BUILD_PYTHON),yes)
-INCLUDE += $(PYTHON_CPPFLAGS)
-endif
-
 # Compilation options.	Perhaps some of these should come from Makefile.inc? (CXXFLAGS now does)
 INTEGER_OVERFLOW_FLAGS := $(call cc-option,-fwrapv) $(call cc-option, -fno-strict-overflow)
 OPT :=  $(INTEGER_OVERFLOW_FLAGS)
 DEBUG := -g -Wall -funwind-tables
+INCLUDE := $(patsubst %,-I%, $(INCLUDES))
 PROFILE_CFLAGS :=
 PROFILE_LDFLAGS :=
 
 CFLAGS := $(INCLUDE) $(OPT) $(DEBUG) $(DPKG_CFLAGS) $(PROFILE_CFLAGS) \
 	-DULAPI $(call cc-option,-std=gnu99 -fgnu89-inline)
-
-# make ck_pr.h happy:
-CFLAGS += $(CK_CFLAGS)
 
 # if not initialised use innocuous switch to prevent errors
 ifeq ($(ARCH_CFLAGS),@ARCH_CFLAGS@)
@@ -272,7 +216,6 @@ ARCH_CFLAGS := -Wunused
 endif
 
 BASE_CXXFLAGS:= $(INCLUDE) $(CXXFLAGS) \
-		$(CK_CFLAGS) \
 		$(DEBUG) $(DPKG_CFLAGS) $(OPT) \
 		$(PROFILE_CFLAGS) \
 		$(ARCH_CFLAGS)
@@ -472,6 +415,7 @@ EXTRA_CFLAGS += \
         $(ARCH_CFLAGS) \
 	-D__MODULE__ \
     -I$(INCLUDE_PREFIX) \
+    -I./hal/support/pru \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \

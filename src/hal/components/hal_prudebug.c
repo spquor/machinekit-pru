@@ -1,6 +1,6 @@
 // based on supply.c
 
-#define ULAPI
+#define RTAPI
 
 // try to make sense of IEP and ECAP counters
 // not part of debugging
@@ -10,6 +10,7 @@
 #include "rtapi_app.h"		/* RTAPI realtime module decls */
 #include "hal.h"		/* HAL public API decls */
 #include <pthread.h>
+#include <limits.h>
 
 #include "prussdrv.h"           // UIO interface to uio_pruss
 #include "pru.h"                // PRU-related defines
