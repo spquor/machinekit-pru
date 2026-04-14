@@ -68,7 +68,7 @@
 #include <pthread.h>
 
 #include "prussdrv.h"           // UIO interface to uio_pruss
-#include "pru.h"                // PRU-related defines
+//#include "pru.h"                // PRU-related defines
 #include "pruss_intc_mapping.h"
 
 #include <stdio.h>
@@ -109,10 +109,10 @@ MODULE_LICENSE("GPL");
 #define f_period_s ((double)(l_period_ns * 1e-9))
 
 static int num_stepgens = 0;
-RTAPI_IP_INT(num_stepgens, "Number of step generators (default: 0)");
+RTAPI_MP_INT(num_stepgens, "Number of step generators (default: 0)");
 
 static int num_pwmgens = 0;
-RTAPI_IP_INT(num_pwmgens, "Number of PWM outputs (default: 0)");
+RTAPI_MP_INT(num_pwmgens, "Number of PWM outputs (default: 0)");
 //int num_pwmgens[MAX_CHAN] = { -1, -1, -1, -1, -1, -1, -1, -1 };
 //RTAPI_MP_ARRAY_INT(num_pwmgens, "Number of PWM outputs for up to 8 banks (default: 0)");
 
@@ -120,25 +120,25 @@ static int num_encoders = 0;
 RTAPI_MP_INT(num_encoders, "Number of encoder channels (default: 0)");
 
 static int num_pwmreads = 0;
-RTAPI_IP_INT(num_pwmreads, "Number of PWM read channels (default: 0)");
+RTAPI_MP_INT(num_pwmreads, "Number of PWM read channels (default: 0)");
 
 static char *halname = "hal_pru_generic";
 RTAPI_MP_STRING(halname, "Prefix for hal names (default: hal_pru_generic)");
 
 static char *prucode = "";
-RTAPI_IP_STRING(prucode, "filename of PRU code (.bin, default: stepgen.bin)");
+RTAPI_MP_STRING(prucode, "filename of PRU code (.bin, default: stepgen.bin)");
 
 static int pru = 1;
-RTAPI_IP_INT(pru, "PRU number to execute this code (0 or 1, default: 1)");
+RTAPI_MP_INT(pru, "PRU number to execute this code (0 or 1, default: 1)");
 
 static int pru_period = 10000;
-RTAPI_IP_INT(pru_period, "PRU task period (in nS, default: 10,000 nS or 100 KHz)");
+RTAPI_MP_INT(pru_period, "PRU task period (in nS, default: 10,000 nS or 100 KHz)");
 
 static int disabled = 0;
-RTAPI_IP_INT(disabled, "start the PRU in disabled state for debugging (0=enabled, 1=disabled, default: enabled");
+RTAPI_MP_INT(disabled, "start the PRU in disabled state for debugging (0=enabled, 1=disabled, default: enabled");
 
 static int event = -1;
-RTAPI_IP_INT(event, "PRU event number to listen for (0..7, default: none)");
+RTAPI_MP_INT(event, "PRU event number to listen for (0..7, default: none)");
 
 static hpg_board_t board_id = BBB;
 
@@ -166,8 +166,8 @@ static tpruss_intc_initdata pruss_intc_initdata = PRUSS_INTC_INITDATA;
 *                  LOCAL FUNCTION DECLARATIONS                         *
 ************************************************************************/
 int check_board();
-static int hpg_read(void *hpg, const hal_funct_args_t *fa);
-static int hpg_write(void *hpg, const hal_funct_args_t *fa);
+static int hpg_read(void *hpg, const long period);
+static int hpg_write(void *hpg, const long period);
 int export_pru(hal_pru_generic_t *hpg);
 int pru_init();
 int pru_init_hpg(int pru, char *filename, int disabled, hal_pru_generic_t *hpg);
@@ -188,25 +188,28 @@ void hpg_wait_update(hal_pru_generic_t *hpg);
 *                       INIT AND EXIT CODE                             *
 ************************************************************************/
 
-static int instantiate_hal_pru_generic(const int argc, char* const *argv) {
+int rtapi_app_main(void) {
     hal_pru_generic_t *hpg;
     int inst_id;
     int retval;
 
-    for(int i = 0; i < argc; i++) {
-      HPG_DBG("ARG %d: %s\n", i, argv[i]);
+    comp_id = hal_init(modname);
+    if (comp_id < 0) {
+        HPG_ERR("ERROR: hal_init() failed\n");
+        return -1;
     }
-    HPG_DBG("static var num_stepgens %d", num_stepgens);
-    HPG_DBG("static var num_pwmgens %d", num_pwmgens);
-    HPG_DBG("static var num_encoders %d", num_encoders);
-    HPG_DBG("static var prucode %s", prucode);
-    HPG_DBG("static var pru %d", pru);
-    HPG_DBG("static var pru_period %d", pru_period);
-    HPG_DBG("static var disabled %d", disabled);
-    HPG_DBG("static var event %d", event);
-    HPG_DBG("static var board_id %d", board_id);
 
-    if((inst_id = hal_inst_create(argv[1], comp_id, sizeof(hal_pru_generic_t), (void**)&hpg)) < 0) {
+    // Allocate HAL shared memory for state data
+    hpg = hal_malloc(sizeof(hal_pru_generic_t));
+    if (hpg == 0) {
+        HPG_ERR("ERROR: hal_malloc() failed\n");
+        return -1;
+    }
+
+    // Clear memory
+    memset(hpg, 0, sizeof(hal_pru_generic_t));
+
+    if((inst_id = hal_inst_create(modname, comp_id, sizeof(hal_pru_generic_t), (void**)&hpg)) < 0) {
       return -1;
     }
 
@@ -222,7 +225,7 @@ static int instantiate_hal_pru_generic(const int argc, char* const *argv) {
     hpg->config.inst_id      = inst_id;
     hpg->config.pru_period   = pru_period;
     hpg->config.pruNumber = pru;
-    strncpy(hpg->config.halname, argv[1], 10);
+    strncpy(hpg->config.halname, modname, 10);
 
     // Initialize PRU and map PRU data memory
 
@@ -282,39 +285,17 @@ static int instantiate_hal_pru_generic(const int argc, char* const *argv) {
     hpg_encoder_force_write(hpg);
     hpg_pwmread_force_write(hpg);
     hpg_wait_force_write(hpg);
+    
+    board_id = check_board();
 
-//    rtapi_print_msg(RTAPI_MSG_DBG, "about to run setup_pru %d %s %d\n", pru, prucode, disabled);
-
-//    if ((retval = setup_pru(pru, prucode, disabled, hpg))) {
-//        HPG_ERR("ERROR: failed to initialize PRU\n");
-//        return -1;
-//    }
-
-//    HPG_DBG("PRU Data After setup_pru\n");
-//    for (int i = 0; i < 25; i++) {
-//      HPG_DBG("0x%04x: 0x%08x\n", 4*i, hpg->pru_data[i]);
-//    }
-//    HPG_INFO("installed\n");
-//    hal_ready(comp_id);
-    return 0;
-}
-
-int rtapi_app_main(void) {
-  comp_id = hal_xinit(TYPE_RT, 0, 0, instantiate_hal_pru_generic, NULL, modname);
-  if(comp_id < 0)
-    return comp_id;
-
-  board_id = check_board();
-
-  // Initialize PRU and map PRU data memory
-  if (pru_init()) {
+    // Initialize PRU and map PRU data memory
+    if (pru_init()) {
       HPG_ERR("ERROR: failed to initialize PRU\n");
       return -1;
-  }
+    }
 
-
-  hal_ready(comp_id);
-  return 0;
+    hal_ready(comp_id);
+    return 0;
 }
 
 void rtapi_app_exit(void) {
@@ -329,11 +310,11 @@ void rtapi_app_exit(void) {
 /***********************************************************************
 *                       REALTIME FUNCTIONS                             *
 ************************************************************************/
-static int hpg_read(void *void_hpg, const hal_funct_args_t *fa) {
+static int hpg_read(void *void_hpg, const long period) {
     hal_pru_generic_t *hpg = void_hpg;
 
-    hpg_stepgen_read(hpg, fa_period(fa));
-    hpg_encoder_read(hpg, fa_period(fa));
+    hpg_stepgen_read(hpg, period);
+    hpg_encoder_read(hpg, period);
     hpg_pwmread_read(hpg);
 
     return 0;
@@ -344,16 +325,16 @@ u16 ns2periods(hal_pru_generic_t *hpg, hal_u32_t ns) {
     return p;
 }
 
-static int hpg_write(void *void_hpg, const hal_funct_args_t *fa) {
+static int hpg_write(void *void_hpg, const long period) {
     hal_pru_generic_t *hpg = void_hpg;
 
-    hpg_stepgen_update(hpg, fa_period(fa));
+    hpg_stepgen_update(hpg, period);
     hpg_pwmgen_update(hpg);
     hpg_encoder_update(hpg);
     hpg_pwmread_update(hpg);
     hpg_wait_update(hpg);
 
-  return 0;
+    return 0;
 }
 
 /***********************************************************************
@@ -386,32 +367,20 @@ int export_pru(hal_pru_generic_t *hpg)
 {
     int r;
 
+    char name[HAL_NAME_LEN + 1];
+
     // Export functions
-    hal_export_xfunct_args_t updateArgs = {
-      .type = FS_XTHREADFUNC,
-      .funct.x = hpg_write,
-      .arg = hpg,
-      .uses_fp = 1,
-      .reentrant = 0,
-      .owner_id = hpg->config.inst_id
-    };
-    r = hal_export_xfunctf(&updateArgs, "%s.update", hpg->config.halname);
+    rtapi_snprintf(name, sizeof(name), "%s.update", modname);
+    r = hal_export_funct(name, hpg_write, hpg, 1, 0, comp_id);
     if (r != 0) {
-        HPG_ERR("ERROR: function export failed: %s\n", hpg->config.halname);
+        HPG_ERR("ERROR: function export failed: %s\n", name);
         return -1;
     }
 
-    hal_export_xfunct_args_t captureArgs = {
-      .type = FS_XTHREADFUNC,
-      .funct.x = hpg_read,
-      .arg = hpg,
-      .uses_fp = 1,
-      .reentrant = 0,
-      .owner_id = hpg->config.inst_id
-    };
-    r = hal_export_xfunctf(&captureArgs, "%s.capture-position", hpg->config.halname);
+    rtapi_snprintf(name, sizeof(name), "%s.capture-position", modname);
+    r = hal_export_funct(name, hpg_read, hpg, 1, 0, comp_id);
     if (r != 0) {
-        HPG_ERR("ERROR: function export failed: %s\n", hpg->config.halname);
+        HPG_ERR("ERROR: function export failed: %s\n", name);
         return -1;
     }
 

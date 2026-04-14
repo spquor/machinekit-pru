@@ -65,6 +65,9 @@ OBJDIR := objects/modules
 DEPDIR := depends/modules
 RTLIBDIR := ../rtlib/modules
 
+HAL_RTLIB_DIR := /usr/lib/linuxcnc/modules/linuxcnc
+HAL_RTLIB_BASE_DIR := /usr/lib/linuxcnc/modules
+
 DEP = $(1) $(CPPFLAGS) -MM -MG -MT "$(2)" $(4) -o $(3).tmp && \
 	mv -f "$(3)".tmp "$(3)"
 
@@ -304,9 +307,9 @@ install-kernel-indep: install-dirs
 
 install-kernel-dep: install-dirs
 	echo Installing modules
-	$(DIR) $(DESTDIR)$(HAL_RTLIB_BASE_DIR)/modules
-	$(FILE) ../rtlib/modules/* \
-		    $(DESTDIR)$(HAL_RTLIB_BASE_DIR)/modules
+	$(DIR) $(DESTDIR)$(HAL_RTLIB_BASE_DIR)
+	$(FILE) ../rtlib/modules/*.so \
+		    $(DESTDIR)$(HAL_RTLIB_BASE_DIR)
 
 endif # ! RUN_IN_PLACE
 
