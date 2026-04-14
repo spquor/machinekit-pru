@@ -78,7 +78,6 @@ cc-option = $(shell \
 
 #############################################################################################
 
-
 default: userspace modules
 
 # Print 'entering' all the time
@@ -92,11 +91,9 @@ TARGETS :=
 SUBDIRS := \
 	\
 	hal/support \
+	hal/drivers \
 	hal/drivers/hal_pru_generic \
     \
-
-# moved to src/rtapi/Submakefile
-# ULAPISRCS := rtapi/$(RTPREFIX)_ulapi.c
 
 # Each item in INCLUDES is transformed into a -I directive later on
 # The top directory is always included
@@ -115,8 +112,6 @@ PROGRAMS :=
 # See Submakefile.skel for an example.
 TOOBJS = $(patsubst %.cc,objects/%$(2).o,$(patsubst %.c,objects/%$(2).o,$(1)))
 TODEPS = $(patsubst %.cc,depends/%$(2).d,$(patsubst %.c,depends/%$(2).d,$(1)))
-#-not sure, something fishy here -mah
-#TODEPS = $(patsubst %.cc,objects/%.d,$(patsubst %.c,objects/%.d,$(1)))
 
 TOOBJSDEPS = $(call TOOBJS,$(1),$(2)) $(call TODEPS, $(1),$(2))
 
@@ -141,20 +136,8 @@ endef
 ###############################################################################
 
 SUBMAKEFILES := $(patsubst %,%/Submakefile,$(SUBDIRS))
-#$(info SUBMAKEFILES=$(SUBMAKEFILES))
 -include $(wildcard $(SUBMAKEFILES))
 $(info All Submakefiles included)
-
-# This checks that all the things listed in USERSRCS are either C files
-# or C++ files
-ASSERT_EMPTY = $(if $(1), $(error "Should be empty but is not: $(1)"))
-ifdef TARGET_PLATFORM_BEAGLEBONE
-# the beaglebone port adds .p (PRU assembly) source files, see hal/components
-$(call ASSERT_EMPTY,$(filter-out %.c %.cc %.p %.js  %.ph %.proto, $(USERSRCS)))
-else
-$(call ASSERT_EMPTY,$(filter-out %.c %.cc %.js %.proto, $(USERSRCS)))
-endif
-$(call ASSERT_EMPTY,$(filter-out %.c, $(RTSRCS)))
 
 # Find the list of object files for each type of source file
 CUSERSRCS := $(filter %.c,$(USERSRCS))
@@ -168,19 +151,11 @@ CUSEROBJS_BUILD := $(call TOOBJS,$(CUSERSRCS_BUILD),_build)
 
 ifeq ($(TRIVIAL_BUILD),no)
 
-ifeq ($(USE_PROTOBUF),yes)
-# force create of %.proto-dependent files and their deps
-Makefile: $(GENERATED) $(PROTO_DEPS)
--include $(PROTO_DEPS)
-endif
-
-ifdef TARGET_PLATFORM_BEAGLEBONE
 ifneq ($(PRU_DEPS),)
 Makefile: $(PRU_DEPS)
 READ_PRU_DEPS = $(wildcard $(PRU_DEPS))
 $(shell echo 1>&2 Reading $(words $(READ_PRU_DEPS))/$(words $(PRU_DEPS)) PRU dependency files)
 -include $(wildcard $(READ_PRU_DEPS))
-endif
 endif
 
 # Find the dependency filenames, then include them all
@@ -278,8 +253,6 @@ clean: depclean modclean docclean
 	-rm -rf objects
 	-rm -f $(TARGETS)
 	-rm -rf ../rtlib ../libexec
-	rm -f ../etc/machinekit/*.ini
-	rm -f ../etc/machinekit/*.conf
 	-rm -f $(COPY_CONFIGS)
 	-rm -f $(RTLIBDIR)/*.so
 	-rm -f hal/components/conv_*.comp
@@ -288,22 +261,6 @@ clean: depclean modclean docclean
 	-rm -rf ../libexec
 	-rm -f ../include/*.hh ../include/*.h
 
-# So that nothing is built as root, this rule does not depend on the touched
-# files (Note that files in depends/ might be rebuilt, and there's little that
-# can be done about it)
-fix_perms = test ! -f $(1) || (chown root $(1) && chmod 4750 $(1))
-
-ifeq ($(BUILD_DRIVERS),yes)
-setuid:
-ifeq ($(HAVE_SYS_IO),yes)
-	$(call fix_perms,../libexec/pci_read)
-	$(call fix_perms,../libexec/pci_write)
-endif
-	$(call fix_perms,../libexec/rtapi_app)
-else
-setuid:
-	@echo "'make setuid' is not needed if hardware drivers are not used"
-endif
 
 # These rules allows a header file from this directory to be installed into
 # ../include.  A pair of rules like these will exist in the Submakefile
@@ -318,12 +275,12 @@ endif
 	$(Q)-cp $^ $@
 
 
-DIR=install -d -m 0755 -o root
-FILE=install -m 0644 -o root
+DIR=install -d -m 0755
+FILE=install -m 0644
 TREE=cp -dR
 CONFIGFILE=install -m 0644
-EXE=install -m 0755 -o root
-SETUID=install -m 4755 -o root
+EXE=install -m 0755
+SETUID=install -m 4755
 GLOB=$(wildcard $(1))
 
 ifeq ($(RUN_IN_PLACE),yes)
@@ -337,66 +294,15 @@ install:
 
 else  ## ifeq($(RUN_IN_PLACE),yes)
 
-DOCS_HELP=$(call GLOB,../help/*)
-NC_FILES=$(filter-out %/butterfly.ngc,$(call GLOB,../nc_files/*))
-
 install: install-kernel-dep install-kernel-indep
 	$(ECHO) "Installed in $(DESTDIR) with prefix $(prefix)"
 
 install-dirs:
-	$(DIR)  $(DESTDIR)$(HAL_RTLIB_DIR) \
-		$(DESTDIR)$(sysconfdir)/machinekit $(DESTDIR)$(bindir) \
-		$(DESTDIR)$(includedir)/machinekit \
-		$(DESTDIR)$(docdir) $(DESTDIR)$(ncfilesdir) \
-		$(DESTDIR)$(HAL_LIBEXEC_DIR) \
-		$(DESTDIR)$(mandir)/man1 \
-		$(DESTDIR)$(mandir)/man3 \
-		$(DESTDIR)$(mandir)/man9 \
-		$(DESTDIR)$(sysconfdir)/rsyslog.d \
-		$(DESTDIR)$(sysconfdir)/security/limits.d \
-		$(DESTDIR)$(sysconfdir)/udev/rules.d \
-		$(DESTDIR)$(sampleconfsdir) \
-		$(DESTDIR)$(datadir)/machinekit \
-		$(DESTDIR)$(datadir)/pkgconfig
-	$(DIR)	$(DESTDIR)$(includedir)/machinekit/userpci
 
 install-kernel-indep: install-dirs
-	$(EXE) ../scripts/realtime $(DESTDIR)$(bindir)
-	$(EXE) ../scripts/halrun $(DESTDIR)$(bindir)
-	$(EXE) ../scripts/runtests $(DESTDIR)$(bindir)
-	$(EXE) $(filter ../bin/%,$(TARGETS)) $(DESTDIR)$(bindir)
-	$(FILE) $(filter ../lib/%.a ../lib/%.so.0,$(TARGETS)) $(DESTDIR)$(libdir)
-	cp --no-dereference $(filter ../lib/%.so, $(TARGETS)) $(DESTDIR)$(libdir)
-#	# don't run ldconfig under fakeroot (silence dpkg-build warning)
-	-test -n "$$FAKED_MODE" || ldconfig $(DESTDIR)$(libdir)
-	$(FILE) $(HEADERS) $(DESTDIR)$(includedir)/machinekit/
-	$(FILE) $(USERPCI_HEADERS) $(DESTDIR)$(includedir)/machinekit/userpci
-	$(FILE) Makefile.modinc $(DESTDIR)$(datadir)/machinekit
-	$(FILE) Makefile.inc $(DESTDIR)$(datadir)/machinekit
-	$(FILE) ../share/pkgconfig/machinekit-hal.pc \
-	    $(DESTDIR)$(datadir)/pkgconfig
-
-	$(FILE) rtapi/rsyslogd-hal.conf $(DESTDIR)$(sysconfdir)/rsyslog.d/hal.conf
-	$(FILE) rtapi/shmdrv/limits.d-machinekit.conf \
-		$(DESTDIR)$(sysconfdir)/security/limits.d/machinekit.conf
-	$(FILE) ../etc/machinekit/machinekit.ini $(DESTDIR)$(sysconfdir)/machinekit
-	$(EXE) ../bin/mank $(DESTDIR)$(bindir)
+	$(DIR) $(DESTDIR)$(HAL_RTLIB_BASE_DIR)
 
 install-kernel-dep: install-dirs
-	$(SETUID) ../libexec/rtapi_app $(DESTDIR)$(HAL_LIBEXEC_DIR)
-ifeq ($(BUILD_DRIVERS),yes)
-ifeq ($(HAVE_SYS_IO),yes)
-	$(SETUID) ../libexec/pci_write $(DESTDIR)$(HAL_LIBEXEC_DIR)
-	$(SETUID) ../libexec/pci_read $(DESTDIR)$(HAL_LIBEXEC_DIR)
-endif
-endif
-	$(EXE) ../libexec/inivar $(DESTDIR)$(HAL_LIBEXEC_DIR)
-	$(EXE) ../libexec/rtapi_msgd $(DESTDIR)$(HAL_LIBEXEC_DIR)
-	$(FILE) ../etc/machinekit/rtapi.ini $(DESTDIR)$(sysconfdir)/machinekit
-
-	# RTAPI modules:  install userland flavor .so modules into
-	# e.g. /usr/lib/machinekit/modules
-
 	echo Installing modules
 	$(DIR) $(DESTDIR)$(HAL_RTLIB_BASE_DIR)/modules
 	$(FILE) ../rtlib/modules/* \
@@ -415,13 +321,14 @@ EXTRA_CFLAGS += \
         $(ARCH_CFLAGS) \
 	-D__MODULE__ \
     -I$(INCLUDE_PREFIX) \
-    -I./hal/support/pru \
 	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
 	$(KERNEL_MATH_CFLAGS)
 
-################################################################################
+EXTRA_CFLAGS += -I./hal/support/pru \
+                -I./hal/include
+
 # Misc C components in directories with no Submakefile
 TOCOMPRTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
 

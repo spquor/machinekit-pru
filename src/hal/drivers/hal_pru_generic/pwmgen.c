@@ -50,8 +50,7 @@
 // information, go to https://github.com/machinekit.                    //
 //----------------------------------------------------------------------//
 
-// Use config_module.h instead of config.h so we can use RTAPI_INC_LIST_H
-#include "config_module.h"
+#define RTAPI
 
 #include "rtapi.h"
 #include "rtapi_app.h"
@@ -59,14 +58,8 @@
 #include "rtapi_math.h"
 
 #include "hal.h"
-#include "config.h"             // TARGET_PLATFORM_BEAGLEBONE
 
-#include "hal/drivers/hal_pru_generic/hal_pru_generic.h"
-
-// this probably should be an ARM335x #define
-#if !defined(TARGET_PLATFORM_BEAGLEBONE)
-#error "This driver is for the beaglebone platform only"
-#endif
+#include "hal_pru_generic.h"
 
 void hpg_pwmgen_handle_pwm_period(hal_pru_generic_t *hpg, int i) {
     u32 pwm_pru_periods;

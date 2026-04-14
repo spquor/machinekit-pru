@@ -44,8 +44,7 @@
 // information, go to https://github.com/machinekit.                    //
 //----------------------------------------------------------------------//
 
-// Use config_module.h instead of config.h so we can use RTAPI_INC_LIST_H
-#include "config_module.h"
+#define RTAPI
 
 #include "rtapi.h"
 #include "rtapi_app.h"
@@ -53,14 +52,7 @@
 #include "rtapi_math.h"
 
 #include "hal.h"
-#include "config.h"             // TARGET_PLATFORM_BEAGLEBONE
-
-#include "hal/drivers/hal_pru_generic/hal_pru_generic.h"
-
-// this probably should be an ARM335x #define
-#if !defined(TARGET_PLATFORM_BEAGLEBONE)
-#error "This driver is for the beaglebone platform only"
-#endif
+#include "hal_pru_generic.h"
 
 // LUT used to decide when/how to modify count value
 // LUT index value consists of 6-bits:
@@ -239,7 +231,7 @@ void hpg_encoder_read_chan(hal_pru_generic_t *hpg, int instance, int channel) {
     // We need a minimum amount of pulses or polls to have a valid estimation
     // This algorithm is an hybrid period/frequency based velocity estimation
 
-    hal_bool valid =   (reg_count_diff != 0 && e->poll_count >= 100)   // Period mode (3% accuracy)
+    bool valid =   (reg_count_diff != 0 && e->poll_count >= 100)   // Period mode (3% accuracy)
                 || (abs(e->pulse_count) >= 100 && e->poll_count >= 50);  // Frequency mode (3% accuracy)
     if (*(e->hal.pin.running) && valid) {
         real_t vel = (e->pulse_count / *(e->hal.pin.scale) ) / (delta_time * 1e-9);

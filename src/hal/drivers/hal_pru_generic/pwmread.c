@@ -41,13 +41,7 @@
 // information, go to www.machinekit.io.                                //
 //----------------------------------------------------------------------//
 
-// Use config_module.h instead of config.h so we can use RTAPI_INC_LIST_H
-#include "config_module.h"
-#include "config.h"             // TARGET_PLATFORM_BEAGLEBONE
-
-#if !defined(TARGET_PLATFORM_BEAGLEBONE)
-#error "This driver is for the beaglebone platform only"
-#endif
+#define RTAPI
 
 #include "rtapi.h"
 #include "rtapi_app.h"
@@ -56,7 +50,7 @@
 
 #include "hal.h"
 
-#include "hal/drivers/hal_pru_generic/hal_pru_generic.h"
+#include "hal_pru_generic.h"
 
 void hpg_pwmread_read(hal_pru_generic_t *hpg) {
     int i;
