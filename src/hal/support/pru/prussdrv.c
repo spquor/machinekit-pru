@@ -46,8 +46,6 @@
  * ============================================================================
  */
 
-#define RTAPI
-
 #include "rtapi.h"		/* RTAPI realtime OS API */
 
 #include <prussdrv.h>

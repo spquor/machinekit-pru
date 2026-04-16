@@ -64,14 +64,13 @@
 
 #ifndef _hal_pru_generic_H_
     // pru_addr_t
-    
     // pru_task_mode_t
 
 #else
     typedef u32 pru_addr_t;
 
     // Insure these values match the JUMPTABLE in the pru assembly code!
-    typedef enum { 
+    typedef enum {
         eMODE_INVALID   = -1,
         eMODE_NONE      = 0,
         eMODE_WAIT      = 1,

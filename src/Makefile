@@ -324,7 +324,7 @@ EXTRA_CFLAGS += \
         $(ARCH_CFLAGS) \
 	-D__MODULE__ \
     -I$(INCLUDE_PREFIX) \
-	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT \
+	-DSEQUENTIAL_SUPPORT -DHAL_SUPPORT -DDYNAMIC_PLCSIZE -DRT_SUPPORT -DRTAPI \
 	-DOLD_TIMERS_MONOS_SUPPORT -DMODBUS_IO_MASTER \
 	$(call cc-option,-mieee-fp) \
 	$(KERNEL_MATH_CFLAGS)
@@ -443,7 +443,7 @@ $(RTLIBDIR)/%.so:
 	@# link the final object using this version script:
 	$(Q)$(CC) -shared -Bsymbolic $(LDFLAGS) -Wl,--version-script,$(OBJDIR)/$*.ver -o $@ $^ $(EXTRA_LDFLAGS)
 
-$(sort $(RTDEPS)): $(DEPDIR)/%.d: %.c
+$(sort $(RTDEPS)): $(DEPDIR)/%.d : %.c
 	@mkdir -p $(dir $@)
 	$(ECHO) Depending realtime $<
 	$(Q)$(call DEP,$(CC),$@ \

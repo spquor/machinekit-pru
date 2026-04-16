@@ -41,8 +41,6 @@
 // information, go to www.machinekit.io.                                //
 //----------------------------------------------------------------------//
 
-#define RTAPI
-
 #include "rtapi.h"
 //#include "rtapi_app.h"
 #include "rtapi_string.h"

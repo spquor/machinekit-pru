@@ -50,8 +50,6 @@
 // information, go to https://github.com/machinekit.                    //
 //----------------------------------------------------------------------//
 
-#define RTAPI
-
 #include "rtapi.h"
 //#include "rtapi_app.h"
 #include "rtapi_string.h"

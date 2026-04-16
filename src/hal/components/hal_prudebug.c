@@ -1,7 +1,5 @@
 // based on supply.c
 
-#define RTAPI
-
 // try to make sense of IEP and ECAP counters
 // not part of debugging
 #define EXPLORE_COUNTERS 1

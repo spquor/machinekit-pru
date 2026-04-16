@@ -59,8 +59,6 @@
 
 #define MAX_PATH_LEN 100
 
-#define RTAPI
-
 #include "rtapi.h"          /* RTAPI realtime OS API */
 #include "rtapi_app.h"      /* RTAPI realtime module decls */
 #include "rtapi_math.h"
@@ -209,13 +207,6 @@ int rtapi_app_main(void) {
     // Clear memory
     memset(hpg, 0, sizeof(hal_pru_generic_t));
 
-    if((inst_id = hal_inst_create(modname, comp_id, sizeof(hal_pru_generic_t), (void**)&hpg)) < 0) {
-      return -1;
-    }
-
-    // Clear memory
-    memset(hpg, 0, sizeof(hal_pru_generic_t));
-
     // Setup global state
     hpg->config.num_pwmgens  = num_pwmgens;
     hpg->config.num_stepgens = num_stepgens;
@@ -224,8 +215,8 @@ int rtapi_app_main(void) {
     hpg->config.comp_id      = comp_id;
     hpg->config.inst_id      = inst_id;
     hpg->config.pru_period   = pru_period;
-    hpg->config.pruNumber = pru;
-    strncpy(hpg->config.halname, modname, 10);
+    hpg->config.pruNumber    = pru;
+    strncpy(hpg->config.halname, halname, 10);
 
     // Initialize PRU and map PRU data memory
 
@@ -285,7 +276,7 @@ int rtapi_app_main(void) {
     hpg_encoder_force_write(hpg);
     hpg_pwmread_force_write(hpg);
     hpg_wait_force_write(hpg);
-    
+
     board_id = check_board();
 
     // Initialize PRU and map PRU data memory
