@@ -164,8 +164,8 @@ static tpruss_intc_initdata pruss_intc_initdata = PRUSS_INTC_INITDATA;
 *                  LOCAL FUNCTION DECLARATIONS                         *
 ************************************************************************/
 int check_board();
-static int hpg_read(void *hpg, const long period);
-static int hpg_write(void *hpg, const long period);
+static void hpg_read(void *hpg, long period);
+static void hpg_write(void *hpg, long period);
 int export_pru(hal_pru_generic_t *hpg);
 int pru_init();
 int pru_init_hpg(int pru, char *filename, int disabled, hal_pru_generic_t *hpg);
@@ -188,7 +188,6 @@ void hpg_wait_update(hal_pru_generic_t *hpg);
 
 int rtapi_app_main(void) {
     hal_pru_generic_t *hpg;
-    int inst_id;
     int retval;
 
     comp_id = hal_init(modname);
@@ -213,13 +212,11 @@ int rtapi_app_main(void) {
     hpg->config.num_encoders = num_encoders;
     hpg->config.num_pwmreads = num_pwmreads;
     hpg->config.comp_id      = comp_id;
-    hpg->config.inst_id      = inst_id;
     hpg->config.pru_period   = pru_period;
     hpg->config.pruNumber    = pru;
     strncpy(hpg->config.halname, halname, 10);
 
     // Initialize PRU and map PRU data memory
-
     if ((retval = pru_init_hpg(pru, prucode, disabled, hpg))) {
         HPG_ERR("ERROR: failed to initialize PRU hpg\n");
         return -1;
@@ -301,22 +298,20 @@ void rtapi_app_exit(void) {
 /***********************************************************************
 *                       REALTIME FUNCTIONS                             *
 ************************************************************************/
-static int hpg_read(void *void_hpg, const long period) {
+static void hpg_read(void *void_hpg, long period) {
     hal_pru_generic_t *hpg = void_hpg;
 
     hpg_stepgen_read(hpg, period);
     hpg_encoder_read(hpg, period);
     hpg_pwmread_read(hpg);
-
-    return 0;
 }
 
 u16 ns2periods(hal_pru_generic_t *hpg, hal_u32_t ns) {
-    u16 p = rtapi_ceil((double)ns / (double)hpg->config.pru_period);
+    u16 p = ceil((double)ns / (double)hpg->config.pru_period);
     return p;
 }
 
-static int hpg_write(void *void_hpg, const long period) {
+static void hpg_write(void *void_hpg, long period) {
     hal_pru_generic_t *hpg = void_hpg;
 
     hpg_stepgen_update(hpg, period);
@@ -324,8 +319,6 @@ static int hpg_write(void *void_hpg, const long period) {
     hpg_encoder_update(hpg);
     hpg_pwmread_update(hpg);
     hpg_wait_update(hpg);
-
-    return 0;
 }
 
 /***********************************************************************

@@ -103,7 +103,7 @@ void hpg_stepgen_read(hal_pru_generic_t *hpg, long l_period_ns) {
         *(hpg->stepgen.instance[i].hal.pin.test3) = acc;
 
         // those tricky users are always trying to get us to divide by zero
-        if (rtapi_fabs(*(hpg->stepgen.instance[i].hal.pin.position_scale)) < 1e-6) {
+        if (fabs(*(hpg->stepgen.instance[i].hal.pin.position_scale)) < 1e-6) {
             if (*(hpg->stepgen.instance[i].hal.pin.position_scale) >= 0.0) {
                 *(hpg->stepgen.instance[i].hal.pin.position_scale) = 1.0;
                 HPG_ERR("stepgen %d position_scale is too close to 0, resetting to 1.0\n", i);
@@ -237,7 +237,7 @@ static void hpg_stepgen_instance_position_control(hal_pru_generic_t *hpg, long l
         dp = dv * seconds_to_vel_match;         // Resulting position change if we invert match_accel
 
         /* decide which way to ramp */
-        if (rtapi_fabs(error_at_match + (dp * 2.0)) < rtapi_fabs(error_at_match)) {
+        if (fabs(error_at_match + (dp * 2.0)) < fabs(error_at_match)) {
             match_accel = -match_accel;
         }
 
@@ -279,12 +279,12 @@ static void update_stepgen(hal_pru_generic_t *hpg, long l_period_ns, int i) {
         double max_steps_per_s = 1.0e9 / min_ns_per_step;
 
 
-        physical_maxvel = max_steps_per_s / rtapi_fabs(*(s->hal.pin.position_scale));
+        physical_maxvel = max_steps_per_s / fabs(*(s->hal.pin.position_scale));
         physical_maxvel = force_precision(physical_maxvel);
 
         if (*(s->hal.pin.maxvel) < 0.0) {
             HPG_ERR("stepgen.%02d.maxvel < 0, setting to its absolute value\n", i);
-            *(s->hal.pin.maxvel) = rtapi_fabs(*(s->hal.pin.maxvel));
+            *(s->hal.pin.maxvel) = fabs(*(s->hal.pin.maxvel));
         }
 
         if (*(s->hal.pin.maxvel) > physical_maxvel) {
@@ -304,7 +304,7 @@ static void update_stepgen(hal_pru_generic_t *hpg, long l_period_ns, int i) {
     // maxaccel may not be negative
     if (*(s->hal.pin.maxaccel) < 0.0) {
         HPG_ERR("stepgen.%02d.maxaccel < 0, setting to its absolute value\n", i);
-        *(s->hal.pin.maxaccel) = rtapi_fabs(*(s->hal.pin.maxaccel));
+        *(s->hal.pin.maxaccel) = fabs(*(s->hal.pin.maxaccel));
     }
 
 
@@ -331,7 +331,7 @@ static void update_stepgen(hal_pru_generic_t *hpg, long l_period_ns, int i) {
     }
 
     // also clamp on the lower end to prevent PRU "pin hunting"
-    if (rtapi_fabs(new_vel) < minvel) {
+    if (fabs(new_vel) < minvel) {
         new_vel = 0.0;
     }
 
@@ -536,10 +536,10 @@ int export_stepgen(hal_pru_generic_t *hpg, int i)
 
     hpg->stepgen.instance[i].subcounts = 0;
 
-    *(hpg->stepgen.instance[i].hal.pin.steplen)   = rtapi_ceil((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
-    *(hpg->stepgen.instance[i].hal.pin.stepspace) = rtapi_ceil((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
-    *(hpg->stepgen.instance[i].hal.pin.dirsetup)  = rtapi_ceil((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
-    *(hpg->stepgen.instance[i].hal.pin.dirhold)   = rtapi_ceil((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
+    *(hpg->stepgen.instance[i].hal.pin.steplen)   = fabs((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
+    *(hpg->stepgen.instance[i].hal.pin.stepspace) = fabs((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
+    *(hpg->stepgen.instance[i].hal.pin.dirsetup)  = fabs((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
+    *(hpg->stepgen.instance[i].hal.pin.dirhold)   = fabs((double)DEFAULT_DELAY / (double)hpg->config.pru_period);
 
     hpg->stepgen.instance[i].written_steplen = 0;
     hpg->stepgen.instance[i].written_stepspace = 0;
