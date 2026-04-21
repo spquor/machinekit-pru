@@ -56,6 +56,11 @@ ECHO=@true
 VECHO=true
 endif
 
+ifeq ($(BASEPWD),)
+BASEPWD := $(shell pwd)
+export BASEPWD
+endif
+
 # default target:  put before everything else
 default:
 
@@ -145,7 +150,7 @@ $(info All Submakefiles included)
 # Find the list of object files for each type of source file
 CUSERSRCS := $(filter %.c,$(USERSRCS))
 CXXUSERSRCS := $(filter %.cc,$(USERSRCS))
-CUSEROBJS = $(call TOOBJS,$(CUSERSRCS))
+CUSEROBJS += $(call TOOBJS,$(CUSERSRCS))
 CXXUSEROBJS += $(call TOOBJS,$(CXXUSERSRCS))
 
 # Find the list of build-arch object files for C sources
@@ -233,6 +238,19 @@ $(sort $(CXXUSEROBJS)) : objects/%.o: %.cc
 	$(Q)$(CXX) -c $(CPPFLAGS) $(CXXFLAGS) $(EXTRAFLAGS) \
 		-MP -MD -MF "${@:.o=.d}" -MT "$@" \
 		$< -o $@
+
+## the "headers" target installs all the header files in ../include
+.PHONY: headers
+HEADERS := $(patsubst %,../include/%,$(foreach h,$(HEADERS),$(notdir $h)))
+headers: $(HEADERS)
+
+# install header files as part of the build
+TARGETS += headers
+
+# Add headers to this list that need to go into subdirectories; their
+# respective Submakefiles will need to provide rules to copy them into
+# ../install.
+headers: $(SUBDIRECTORY_HEADERS)
 
 # And make userspace depend on $(TARGETS)
 userspace: $(TARGETS)
@@ -468,6 +486,66 @@ $(sort $(CXXRTOBJS)) : $(OBJDIR)/%.o : %.cc $(DEPDIR)/%.d
 
 
 
+
+
+###############################################################################################
+
+
+# Phony so that it is always rebuilt when requested, not because it
+# shouldn't exist as a file
+.PHONY: tags
+
+# dont create tags from these directories
+NOTAGSIN := \
+	depends \
+	objects
+
+CTAGOPTS := $(addprefix --exclude=,$(NOTAGSIN))
+ETAGOPTS := $(CTAGOPTS)
+FINDOPTS :=  -not \( $(patsubst %,-path ./% -prune -o,$(NOTAGSIN)) -type d \)
+
+tags:
+	ctags-exuberant --extra=+fq \
+		$(CTAGOPTS) \
+		'--langmap=make:+(Submakefile),make:+(Makefile.inc),c:+.comp' \
+		-I EXPORT_SYMBOL+,RTAPI_MP_INT+,RTAPI_MP_LONG+,RTAPI_MP_STRING+ \
+		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
+		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
+		-R . ../scripts
+	rm -f TAGS
+	find . -type f -name '*.[ch]' $(FINDOPTS) | xargs  etags -l c --append
+	find . -type f -name '*.cc'  $(FINDOPTS) | xargs  etags -l c++ --append
+	find . -type f -name '*.hh'  $(FINDOPTS) | xargs  etags -l c++ --append
+	find . -type f -name '*.proto'  $(FINDOPTS) | xargs  etags -l c++ --append
+
+# etags from exuberant-ctags package
+etags:
+	etags --extra=+fq \
+		$(ETAGOPTS) \
+		'--langmap=make:+(Submakefile),make:+(Makefile.inc),c:+.comp' \
+		-I EXPORT_SYMBOL+,RTAPI_MP_INT+,RTAPI_MP_LONG+,RTAPI_MP_STRING+ \
+		-I RTAPI_MP_ARRAY_INT+,RTAPI_MP_ARRAY_LONG+,RTAPI_MP_ARRAY_STRING+ \
+		-I MODULE_AUTHOR+,MODULE_DESCRIPTION+,MODULE_LICENSE+ \
+		-R . ../scripts
+	find . -type f -name '*.[ch]' $(FINDOPTS) |xargs etags --language-force=C --append
+	find . -type f -name '*.cc'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+	find . -type f -name '*.hh'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+	find . -type f -name '*.proto'  $(FINDOPTS) |xargs etags --language-force=C++ --append
+
+# emacs etags
+eetags:
+	@rm -f TAGS
+	@find .  $(FINDOPTS) -type f -name '*.[ch]'  |xargs etags --language=c   --append
+	@find .  $(FINDOPTS) -type f -name '*.cc'    |xargs etags --language=c++ --append
+	@find .  $(FINDOPTS) -type f -name '*.hh'    |xargs etags --language=c++ --append
+	@find .  $(FINDOPTS) -type f -name '*.proto' |xargs etags --language=c++ --append
+
+.PHONY: swish
+swish:
+	swish-e -c .swish_config -v 0 -i $(BASEPWD) \
+		$(dir $(BASEPWD))scripts \
+		$(dir $(BASEPWD))configs
+
 # When you depend on objects/var-ZZZ you are depending on the contents of the
 # variable ZZZ, which is assumed to depend on a Makefile, a Submakefile, or
 # Makefile.inc
@@ -483,3 +561,9 @@ objects/var-%: Makefile $(wildcard $(SUBMAKEFILES)) Makefile.inc
 # - Be sure the setuid message comes last
 ALL_SHLIBS=$(filter ../%.so.0,$(TARGETS)) $(filter ../%.so,$(TARGETS))
 modules: $(ALL_SHLIBS)
+
+cscope:
+	cscope -Rb
+
+cscope/man/:
+	bash -c 'for f in `find ./ -name "cscope.*out"`;do rm $$f;done'
