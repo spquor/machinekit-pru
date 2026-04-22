@@ -55,7 +55,15 @@ $(call TOOBJSDEPS, $(PRUSSDRV_SRCS)) : EXTRAFLAGS= -D__DEBUG -I$(BASEPWD)/hal/su
 USERSRCS += $(PRUSSDRV_SRCS)
 
 # C components
-$(eval $(call c_comp_build_rules,hal/components/hal_pru.o, $(LIBPTHREAD)))
-$(eval $(call c_comp_build_rules,hal/components/hal_prudebug.o, $(LIBPTHREAD)))
+$(eval $(call c_comp_build_rules,                      \
+	hal/components/hal_pru.o,                      \
+	hal/support/pru/prussdrv.o                     \
+	$(LIBPTHREAD)                                  \
+	))
+$(eval $(call c_comp_build_rules,                      \
+	hal/components/hal_prudebug.o,                 \
+	hal/support/pru/prussdrv.o                     \
+	$(LIBPTHREAD)                                  \
+	))
 
 endif
