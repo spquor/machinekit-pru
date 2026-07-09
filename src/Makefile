@@ -74,6 +74,8 @@ RTLIBDIR := ../rtlib/modules
 HAL_RTLIB_DIR := /usr/lib/linuxcnc/modules/linuxcnc
 HAL_RTLIB_BASE_DIR := /usr/lib/linuxcnc/modules
 
+TARGET_PLATFORM_BEAGLEBONE := TRUE
+
 DEP = $(1) $(CPPFLAGS) -MM -MG -MT "$(2)" $(4) -o $(3).tmp && \
 	mv -f "$(3)".tmp "$(3)"
 
