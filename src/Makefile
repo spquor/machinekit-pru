@@ -66,6 +66,7 @@ default:
 
 #############################################################################################
 
+SRCDIR := hal
 OBJDIR := objects/modules
 DEPDIR := depends/modules
 RTLIBDIR := ../rtlib/modules
@@ -98,9 +99,9 @@ TARGETS :=
 # Submakefiles from each of these directories will be included if they exist
 SUBDIRS := \
 	\
-	hal/support \
-	hal/drivers \
-	hal/drivers/hal_pru_generic \
+	$(SRCDIR)/support \
+	$(SRCDIR)/drivers \
+	$(SRCDIR)/drivers/hal_pru_generic \
     \
 
 # Each item in INCLUDES is transformed into a -I directive later on
@@ -127,18 +128,11 @@ TOOBJSDEPS = $(call TOOBJS,$(1),$(2)) $(call TODEPS, $(1),$(2))
 TORTOBJS = $(patsubst %.cc,$(OBJDIR)/%$(2).o,$(patsubst %.c,$(OBJDIR)/%$(2).o,$(1)))
 
 # This macro generates build rules for C components
-# Example call & resulting rules:
-# $$(eval $(call c_comp_build_rules,hal/components/encoder.o,hal/components/othersrc.o))
-# obj-m += encoder.o
-# encoder-objs := hal/components/encoder.o hal/components/othersrc.o
-# $(RTLIBDIR)/encoder.so: \
-#     hal/components/encoder.o hal/components/othersrc.o
 define c_comp_build_rules
 obj-m += $$(patsubst $$(dir $(1))%.o,%.o,$(1))
 $$(patsubst $$(dir $(1))%.o,%-objs,$(1)) += $(1) $(2)
 $$(patsubst $$(dir $(1))%.o,$(RTLIBDIR)/%.so,$(1)): \
     $$(addprefix $(OBJDIR)/,$(1) $(2))
-
 endef
 
 ###############################################################################
@@ -347,8 +341,8 @@ EXTRA_CFLAGS += \
 	$(call cc-option,-mieee-fp) \
 	$(KERNEL_MATH_CFLAGS)
 
-EXTRA_CFLAGS += -I./hal/support/pru \
-                -I./hal/include
+EXTRA_CFLAGS += -I./$(SRCDIR)/support/pru \
+                -I./$(SRCDIR)/include
 
 # Misc C components in directories with no Submakefile
 TOCOMPRTOBJS = $(foreach file,$($(patsubst %.o,%,$(1))-objs), $(OBJDIR)/$(file))
