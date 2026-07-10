@@ -1,15 +1,15 @@
 # machinekit-pru
-Machinekit HAL driver for the TI Programmable Realtime Unit used
+Machinekit HAL driver for the TI Programmable Realtime Unit
 
 Succesfully compiles with modern LinuxCNC on BeagleBone
 
 ## Building from source
 Run make && make install inside src dir. Useful environment variables:
 
-DESTDIR - root dir for binaries install
+DESTDIR - root dir for system path where binaries will be installed (useful for cross-compilation, leave empty otherwise)
 
 INCLUDE_PREFIX - full path to LinuxCNC include files
 
-Contains two driver varians, hal and halv2. hal directory is original driver. halv2 contains updated driver with bbai support.
+Contains two driver varians, hal and halv2. hal directory contains original driver. halv2 contains updated driver with bbai support.
 
-### Help available at: [hal_pru_generic.asciidoc](https://github.com/spquor/machinekit-pru/blob/main/hal_pru_generic.asciidoc)
+**Help available at:** [hal_pru_generic.asciidoc](https://github.com/spquor/machinekit-pru/blob/main/hal_pru_generic.asciidoc)
